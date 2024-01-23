@@ -1,52 +1,36 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { teamsAndScores } from "../constants";
-import { matchNames } from "../constants";
+import React, { useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  startSimulation,
+  finishSimulation,
+  incrementRandomTeamScore,
+  restartSimulation,
+} from "../redux/reducers/simulationSlice";
+import { selectSimulation } from "../redux/selectors";
 
 export interface Team {
   name: string;
   score: number;
 }
 
-//Decrease simulationTime to make the simulation run faster
-const simulationTime: number = 10000;
+const simulationTime: number = 1000;
 
 const SimulationComponent: React.FC = () => {
-  const [matchName, setMatchName] = useState("");
-  const [simulationTeamsAndScores, setSimulationTeamsAndScores] = useState<
-    Team[]
-  >([...teamsAndScores]);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [totalScore, setTotalScore] = useState<number>(0);
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
-  const [btnTitle, setBtnTitle] = useState<string>("Start");
-
-  const incrementRandomTeamScore = useCallback((): void => {
-    const randomIndex = Math.floor(
-      Math.random() * simulationTeamsAndScores.length
-    );
-    const newTeamsAndScores = [...simulationTeamsAndScores];
-    newTeamsAndScores[randomIndex].score += 1;
-
-    setSimulationTeamsAndScores(newTeamsAndScores);
-  }, [simulationTeamsAndScores]);
-
-  const getRandomMatchTeamName = (): void => {
-    const randomNameIndex = Math.floor(Math.random() * matchNames.length);
-    setMatchName(matchNames[randomNameIndex]);
-  };
+  const dispatch = useDispatch();
+  const simulation = useSelector(selectSimulation);
+  const { teamsAndScores, isRunning, totalScore, buttonTitle, matchName } =
+    simulation;
 
   useEffect(() => {
     let id: NodeJS.Timeout;
     if (isRunning && totalScore < 9) {
       id = setInterval(() => {
-        incrementRandomTeamScore();
-        setTotalScore((prevScore) => prevScore + 1);
+        dispatch(incrementRandomTeamScore());
       }, simulationTime);
-      setIntervalId(id);
     }
 
-    if (totalScore === 9) {
-      setBtnTitle("Restart");
+    if (totalScore === 9 && isRunning) {
+      dispatch(finishSimulation());
     }
 
     return () => {
@@ -54,46 +38,16 @@ const SimulationComponent: React.FC = () => {
         clearInterval(id);
       }
     };
-  }, [incrementRandomTeamScore, isRunning, totalScore]);
+  }, [dispatch, isRunning, totalScore]);
 
   const handleButtonClick = (): void => {
-    if (btnTitle === "Start") {
-      startSimulation();
-    } else if (btnTitle === "Finish") {
-      finishSimulation();
-    } else if (btnTitle === "Restart") {
-      restartSimulation();
+    if (!isRunning && totalScore === 0) {
+      dispatch(startSimulation());
+    } else if (isRunning && totalScore < 9) {
+      dispatch(finishSimulation());
+    } else if (!isRunning && totalScore <= 9) {
+      dispatch(restartSimulation());
     }
-  };
-
-  const clearSimulationInterval = () => {
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-  };
-
-  const startSimulation = (): void => {
-    getRandomMatchTeamName();
-    setIsRunning(true);
-    setBtnTitle("Finish");
-  };
-
-  const finishSimulation = (): void => {
-    clearSimulationInterval();
-    setIsRunning(false);
-    setBtnTitle("Restart");
-  };
-
-  const restartSimulation = (): void => {
-    clearSimulationInterval();
-    simulationTeamsAndScores.forEach((team) => {
-      team.score = 0;
-    });
-    setTotalScore(0);
-    setIsRunning(false);
-    setBtnTitle("Finish");
-    startSimulation();
   };
 
   return (
@@ -101,14 +55,14 @@ const SimulationComponent: React.FC = () => {
       <h2 style={{ marginBottom: "10px" }}>{matchName}</h2>
       <div>
         <button style={{ marginBottom: "10px" }} onClick={handleButtonClick}>
-          {btnTitle}
+          {buttonTitle}
         </button>
       </div>
       <div>
-        {simulationTeamsAndScores.map((team, index) => {
+        {teamsAndScores.map((team: Team, index: number) => {
           if (index % 2 !== 0) return null;
 
-          const nextTeam = simulationTeamsAndScores[index + 1];
+          const nextTeam = teamsAndScores[index + 1];
 
           return (
             <div key={team.name} style={{ marginBottom: "10px" }}>
@@ -116,7 +70,7 @@ const SimulationComponent: React.FC = () => {
               {nextTeam && (
                 <span style={{ marginRight: "20px" }}>{nextTeam.name}</span>
               )}
-              {team.score} : {nextTeam.score}
+              {team.score} : {nextTeam && nextTeam.score}
             </div>
           );
         })}

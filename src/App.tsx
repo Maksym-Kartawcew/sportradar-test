@@ -1,12 +1,15 @@
-import React from "react";
 import "./App.css";
+import { store } from "./redux/store";
+import { Provider } from "react-redux";
 import SimulationComponent from "./components/SimulationComponent";
 
 function App() {
   return (
-    <div className="App">
-      <SimulationComponent />
-    </div>
+    <Provider store={store}>
+      <div className="App">
+        <SimulationComponent />
+      </div>
+    </Provider>
   );
 }
 
